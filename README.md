@@ -36,3 +36,26 @@ The strategy failed catastrophically out-of-sample.
 **Future Research:** 
 1. Add a regime filter (e.g., ADX or Volatility threshold) to only trade when a trend is mathematically confirmed.
 2. Pivot to Crypto-Native signals (e.g., Funding Rate mean reversion or Order Book Imbalance) which are less reliant on traditional price-action momentum.
+
+
+
+
+## 📊 Research Case Study 2: Derivatives Market Structure (Funding Rate Mean Reversion)
+
+### 1. Hypothesis
+Extreme perpetual funding rates indicate crowded leverage. Shorting extreme positive funding (Z > 1.5) and buying extreme negative funding (Z < -1.5) should capture mean-reversion flushes.
+
+### 2. Data Engineering Challenge (Time-Series Alignment)
+Funding rates print every 8 hours, while spot prices print every 1 hour. To prevent look-ahead bias and missing data, we aligned the datasets using Pandas `ffill()` (Forward Fill) to propagate the 8-hour funding state forward to the 1-hour candles.
+
+### 3. Backtest Results (30-Day Period)
+- **ETH:** -5.18% Return | Sharpe: -2.51 | Win Rate: 40%
+- **SOL:** -5.22% Return | Sharpe: -2.34 | Win Rate: 40%
+
+### 4. Post-Mortem: Why It Failed
+While the Z-score correctly identified crowded positioning, a pure threshold lacks **regime context**. In strong directional trends, extreme funding can persist while price continues to trend, causing severe drawdowns on contrarian positions before reversion occurs ("fighting a steamroller").
+
+### 5. Future Improvements & Next Steps
+1. **Trend Filter:** Require price to break below a short-term Moving Average before entering the contrarian short.
+2. **Risk Limits:** Implement Volatility-Adjusted Stop Losses (e.g., 2x ATR) to cut losses if the crowd remains irrational.
+3. **Funding Arbitrage:** Pivot from directional betting to Delta-Neutral Cash & Carry arbitrage (Long Spot / Short Perp) to capture the funding yield.
