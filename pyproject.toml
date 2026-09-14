@@ -11,5 +11,6 @@ dependencies = [
     "plotly==5.24.0",
     "polars>=1.44.2",
     "pyarrow>=25.0.1",
+    "streamlit>=1.63.0",
     "vectorbt>=1.1.0",
 ]
