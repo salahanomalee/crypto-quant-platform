@@ -2,15 +2,14 @@ name: Crypto Quant Cloud Pipeline
 
 on:
   schedule:
-    # Runs at 00:00, 08:00, 16:00 UTC to match Binance funding intervals
-    - cron: '0 0,8,16 * * *'
-  workflow_dispatch: # Allows manual triggering from GitHub UI
+    # Runs 15 minutes after each Binance funding settlement (00:00, 08:00, 16:00 UTC)
+    - cron: '15 0,8,16 * * *'
+  workflow_dispatch: # Allows manual triggering from the GitHub UI
 
 jobs:
   run-quant-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
