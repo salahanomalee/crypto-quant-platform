@@ -1,5 +1,7 @@
 import polars as pl
 from pathlib import Path
+import requests
+import os
 
 # --- Configuration ---
 PROCESSED_DATA_DIR = Path("data/processed")
@@ -171,6 +173,49 @@ def save_results(df: pl.DataFrame):
     print(f"\nSaved funding Z-score dataset to {output_path}")
 
 
+def send_telegram_alert(df: pl.DataFrame, bot_token: str, chat_id: str):
+    """Send a Telegram message if any asset has an extreme funding signal."""
+    # Get the latest snapshot
+    latest = df.drop_nulls(["funding_zscore"]).sort(["symbol", "timestamp_ms"]).group_by("symbol").tail(1)
+    
+    alerts = latest.filter(pl.col("funding_signal") != "neutral")
+    
+    if alerts.is_empty():
+        print("\nNo extreme signals detected. No alert sent.")
+        return
+
+    print(f"\n🚨 SENDING {alerts.height} ALERT(S) TO TELEGRAM...")
+    
+    # Telegram supports basic HTML formatting
+    message_content = "🚨 <b>CRYPTO QUANT ALERT: EXTREME FUNDING DETECTED</b> 🚨\n\n"
+    
+    for row in alerts.iter_rows(named=True):
+        sym = row['symbol']
+        z = row['funding_zscore']
+        signal = row['funding_signal']
+        rate = row['funding_rate']
+        
+        message_content += f"<b>{sym}</b>\n"
+        message_content += f"Z-Score: <code>{z:.2f}</code> | Raw Rate: <code>{rate:.5f}</code>\n"
+        message_content += f"Signal: <code>{signal}</code>\n\n"
+        
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message_content,
+        "parse_mode": "HTML"
+    }
+    
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200 and response.json().get("ok"):
+            print("✅ Alert successfully sent to Telegram!")
+        else:
+            print(f"❌ Failed to send alert: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"❌ Telegram API error: {e}")
+
+
 if __name__ == "__main__":
     funding_df = load_funding_data()
     zscore_df = calculate_funding_zscores(funding_df)
@@ -181,3 +226,14 @@ if __name__ == "__main__":
     print_signal_counts(signal_df)
 
     save_results(signal_df)
+
+    # ==========================================
+    # SECURELY LOAD CREDENTIALS FROM ENVIRONMENT
+    # ==========================================
+    TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+    TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+    
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        send_telegram_alert(signal_df, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
+    else:
+        print("\n⚠️ Skipping Telegram alert: Environment variables not set.")
